@@ -1,0 +1,140 @@
+1 - Ligar cabos
+
+Sao 8 cabos.
+
+2 - Configurar tuxes
+
+Em cada tux, e preciso:
+	a - Associar a cada interface usada um endereço IP (ifconfig)
+	b - Especificar a rota de encaminhamento de pacotes (route)
+	c - No tux1, configurar DNS.
+
+Ir para tux1 (ScrollLock x 2, 1, ENTER):
+	updateimage
+	/etc/init.d/networking restart
+	
+	ifconfig eth0 172.16.50.1/24
+	route add default gw 172.16.50.254
+	
+	nano /etc/resolv.conf
+	search netlab.fe.up.pt
+	nameserver 172.16.1.1
+	
+Ir para tux4:
+	updateimage
+	/etc/init.d/networking restart
+	
+	ifconfig eth0 172.16.50.254/24
+	ifconfig eth1 172.16.51.253/24
+	route add default gw 172.16.51.254
+	
+Ir para tux2:
+	updateimage
+	/etc/init.d/networking restart
+	
+	ifconfig eth0 172.16.51.1/24
+	route add default gw 172.16.51.254
+	route add -net 172.16.50.0/24 gw 172.16.51.253
+	
+3 - Configurar switch
+
+Limpar config:
+	del flash:vlan.dat
+	copy flash:tux5-clean startup-config
+	reload
+	
+Guardar config:
+	copy running-config flash:T7G05-AEFG
+	
+Usar config:
+	del flash:vlan.dat
+	copy flash:T7G05-AEFG startup-config
+	reload
+
+Manualmente:
+
+	enable
+	pass:8nortel
+	
+	configure terminal
+
+	a - Definir VLAN's
+	
+	vlan 60
+	exit
+	vlan 61
+	exit
+	
+	b - Ligar interfaces às VLAN's
+
+	interface fastethernet 0/1
+	switchport mode access
+	switchport access vlan 50
+	exit
+	
+	interface fastethernet 0/2
+	switchport mode access
+	switchport access vlan 51
+	exit
+	
+	interface fastethernet 0/3
+	switchport mode access
+	switchport access vlan 51
+	exit
+	
+	interface fastethernet 0/4
+	switchport mode access
+	switchport access vlan 50
+	exit
+	
+	interface fastethernet 0/5
+	switchport mode access
+	switchport access vlan 51
+	exit
+	
+4 - Configurar router
+
+Limpar config:
+	copy flash:tux5-clean startup-config
+	reload
+	
+Guardar config:
+	copy running-config flash:T7G05-AEFG
+	
+Usar config:
+	copy flash:T7G05-AEFG startup-config
+	reload
+
+Manualmente:
+	
+	enable
+	pass:8nortel
+
+	conf t
+
+	a - Ligar interfaces a endereços IP
+
+	interface gigabitethernet 0/0
+	ip address 172.16.51.254 255.255.255.0
+	no shutdown
+	ip nat inside
+	exit
+	
+	interface gigabitethernet 0/0
+	ip address 172.16.1.59 255.255.255.0
+	no shutdown
+	ip nat outside
+	exit
+	
+	b - Definir pool de endereços públicos para a NAT e que IP's é que podem usar a NAT
+	
+	ip nat pool ovrld 172.16.1.59 172.16.1.59 prefix 24
+	ip nat inside source list 1 pool ovrld overload
+	
+	access-list 1 permit 172.16.50.0 0.0.0.255
+	access-list 1 permit 172.16.51.0 0.0.0.255
+	
+	c - Configurar encaminhamento de pacotes
+	
+	ip route 0.0.0.0 0.0.0.0 172.16.1.254
+	ip route 172.16.50.0 255.255.255.0 172.16.51.253
